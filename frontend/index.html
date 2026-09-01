@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Saludos Aleatorios</title>
+
+</head>
+
+<body>
+
+    <h1>Laboratorio de Arquitectura de Tres Capas</h1>
+
+    <p>
+        Presiona el botón para obtener un saludo aleatorio.
+    </p>
+
+    <button onclick="obtenerSaludo()">
+        Obtener saludo
+    </button>
+
+    <h2 id="mensaje"></h2>
+
+
+    <script>
+
+        async function obtenerSaludo() {
+
+            const mensaje =
+                document.getElementById("mensaje");
+
+            mensaje.innerText =
+                "Consultando la aplicación...";
+
+            try {
+
+                const response =
+                    await fetch("/api/saludo");
+
+                const data =
+                    await response.json();
+
+                mensaje.innerText =
+                    data.mensaje;
+
+            }
+
+            catch (error) {
+
+                mensaje.innerText =
+                    "Error al obtener el saludo";
+
+                console.error(error);
+
+            }
+
+        }
+
+    </script>
+
+</body>
+
+</html>
