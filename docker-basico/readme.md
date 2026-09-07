@@ -2,25 +2,33 @@
 
 ## Objetivo
 
-En este laboratorio construiremos la misma arquitectura que en vagrant pero utilizando 3 contenedores. 
+En este laboratorio construiremos la misma arquitectura de tres capas implementada anteriormente con Vagrant, pero utilizando **contenedores Docker**.
 
-El objetivo es identificar las ventjas y desventajas de una arquitectura basada en contenedores y la previamente construida con VMs-
+La aplicación estará compuesta por:
 
-Al finalizar, tendremos una arquitectura como esta:
+- Un **Frontend** con Nginx.
+- Un **Backend** desarrollado con Python y Flask.
+- Una **Base de datos PostgreSQL**.
+
+El objetivo no es únicamente crear contenedores. Durante el laboratorio analizaremos cómo una aplicación puede empaquetarse mediante imágenes, ejecutarse mediante contenedores y comunicarse utilizando redes de Docker.
+
+También compararemos continuamente las decisiones tomadas durante el laboratorio de virtualización con su equivalente utilizando contenedores.
+
+Al finalizar tendremos una arquitectura como esta:
 
 ```text
                          Usuario
                             │
-                            │ HTTP :80
+                            │ HTTP
                             ▼
                 ┌───────────────────────┐
-                │   FRONTEND Container  │
+                │  FRONTEND Container   │
                 │         :80           │
                 │                       │
                 │     Nginx + HTML      │
                 └───────────┬───────────┘
                             │
-                            │ HTTP :5000
+                            │ backend:5000
                             ▼
                 ┌───────────────────────┐
                 │   BACKEND Container   │
@@ -29,57 +37,100 @@ Al finalizar, tendremos una arquitectura como esta:
                 │    Python + Flask     │
                 └───────────┬───────────┘
                             │
-                            │ PostgreSQL:5432
+                            │ database:5432
                             ▼
                 ┌───────────────────────┐
-                │   DATABASE Container  │
+                │  DATABASE Container   │
                 │         :5432         │
                 │                       │
                 │      PostgreSQL       │
                 └───────────────────────┘
+
+                     saludos-network
 ```
+
+---
+
+# Arquitectura de la aplicación
+
+La aplicación mantiene el mismo comportamiento utilizado durante el laboratorio de virtualización.
+
+El usuario presiona un botón para solicitar un saludo aleatorio.
+
+```text
+Usuario
+   │
+   │ Presiona botón
+   ▼
+Frontend
+   │
+   │ HTTP
+   ▼
+Backend
+   │
+   │ SQL
+   ▼
+Base de datos
+   │
+   │ Saludo aleatorio
+   ▼
+Backend
+   │
+   │ JSON
+   ▼
+Frontend
+   │
+   ▼
+Usuario
+```
+
+La arquitectura funcional no cambiará.
+
+Lo que cambiará será **la forma en que empaquetamos, ejecutamos y comunicamos cada componente**.
+
+---
 
 # Componentes del laboratorio
 
 | Componente | Tecnología | Carpeta |
-|---|---|---|
+| --- | --- | --- |
 | Frontend | HTML + JavaScript + Nginx | `frontend` |
 | Backend | Python + Flask | `backend` |
 | Base de datos | PostgreSQL | `db` |
-| Infraestructura | Docker | Contenedor |
+| Infraestructura | Docker | Host |
 
 ---
 
 # Requisitos
 
-Antes de iniciar, verificar que se encuentran instalados:
+Antes de iniciar verificar que se encuentran instalados:
 
 - Docker
 - Git
 
-Verificar las versión:
+Verificar la versión:
 
 ```bash
 docker --version
 ```
 
-Verificar que puedas correr comandos sin sudo:
+Verificar que Docker se encuentre funcionando:
 
 ```bash
 docker ps
 ```
 
-Sino corre este comando:
+Si Docker requiere permisos de `sudo`, agregar el usuario actual al grupo Docker:
 
 ```bash
 sudo usermod -aG docker $USER
 ```
 
+Cerrar y volver a iniciar la sesión para aplicar el cambio.
+
 ---
 
 # Estructura del proyecto
-
-El repositorio tiene la siguiente estructura:
 
 ```text
 docker-basico/
@@ -89,8 +140,8 @@ docker-basico/
 │   └── init.sql
 │
 ├── frontend/
-│   ├── Dockerfile 
-    ├── nginx.conf 
+│   ├── Dockerfile
+│   ├── nginx.conf
 │   └── index.html
 │
 └── backend/
@@ -112,41 +163,186 @@ git clone <URL_DEL_REPOSITORIO>
 Ingresar al directorio:
 
 ```bash
-cd docker-basico
+cd virtualizacion-contenerizacion/docker-basico
 ```
 
 ---
 
-# Paso 2: Construir Dockerfiles
+# Paso 2: Analizar las dependencias de la aplicación
 
-Teniendo en cuenta las dependencias de ./virtualizacion/scripts
+Antes de construir las imágenes, revisar los archivos utilizados durante el laboratorio anterior:
 
 ```text
-Dockerfile
+virtualizacion/scripts/
 ```
 
-Identificar los siguientes elementos:
+Identificar qué necesitaba cada máquina para ejecutar su componente.
 
-- FROM
-- RUN
-- COPY
-- CMD
+## Backend
+
+Durante el laboratorio de virtualización fue necesario:
+
+```text
+Ubuntu
+   ↓
+Python
+   ↓
+Dependencias de requirements.txt
+   ↓
+app.py
+   ↓
+python app.py
+```
+
+## Frontend
+
+```text
+Ubuntu
+   ↓
+Nginx
+   ↓
+index.html
+   ↓
+Configuración nginx
+```
+
+## Database
+
+```text
+Ubuntu
+   ↓
+PostgreSQL
+   ↓
+Base de datos
+   ↓
+Usuario
+   ↓
+Tabla + información inicial
+```
+
+Ahora tendremos que representar estas dependencias mediante **imágenes**.
 
 ---
 
-# Paso 3: Crear las imágenes 
+# Paso 3: Construir los Dockerfiles
 
-Desde la ubicación de cada Dockerfile:
+Ingresar a cada carpeta, teniendo en cuenta las dependencias de cada servicio y traduciendo los comandos de la configuración de cada una.
+
+---
+
+# Paso 4: Adaptar el Backend al entorno de contenedores
+
+Durante el laboratorio de virtualización, el backend conocía la dirección IP de PostgreSQL:
+
+```text
+192.168.56.13
+```
+
+Dentro de una red Docker evitaremos depender directamente de la dirección IP del contenedor.
+
+En `app.py`, cambiar:
+
+```python
+host="192.168.56.13"
+```
+
+por:
+
+```python
+host="database"
+```
+
+Más adelante veremos cómo Docker permite resolver este nombre dentro de una red.
+
+---
+
+# Paso 5: Adaptar Nginx al entorno de contenedores
+
+Durante el laboratorio de virtualización, Nginx enviaba las solicitudes hacia:
+
+```nginx
+proxy_pass http://192.168.56.12:5000/;
+```
+
+Ahora el backend será un contenedor dentro de una red Docker.
+
+Cambiar por:
+
+```nginx
+proxy_pass http://backend:5000/;
+```
+
+La configuración deberá contener:
+
+```nginx
+server {
+
+    listen 80 default_server;
+
+    listen [::]:80 default_server;
+
+    root /usr/share/nginx/html;
+
+    index index.html;
+
+    location / {
+
+        try_files $uri $uri/ =404;
+
+    }
+
+    location /api/ {
+
+        proxy_pass http://backend:5000/;
+
+        proxy_set_header Host $host;
+
+        proxy_set_header X-Real-IP $remote_addr;
+
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+    }
+
+}
+```
+
+Observar dos cambios respecto a la VM:
+
+```text
+VIRTUALIZACIÓN                  CONTENEDORES
+
+/var/www/html            →      /usr/share/nginx/html
+
+192.168.56.12:5000       →      backend:5000
+```
+
+---
+
+# Paso 6: Crear las imágenes
+
+Desde `docker-basico` construir las tres imágenes.
+
+## Backend
 
 ```bash
-docker build -t $IMAGE_NAME:$IMAGE_TAG .
+docker build -t saludos-backend:1.0 ./backend
 ```
 
-Este comando creará cada imagen con una capa por comando/instrucción del Dockerfile
+## Frontend
+
+```bash
+docker build -t saludos-frontend:1.0 ./frontend
+```
+
+## Database
+
+```bash
+docker build -t saludos-db:1.0 ./db
+```
 
 ---
 
-# Paso 4: Verificar el estado de las imágenes
+# Paso 7: Verificar las imágenes
 
 Ejecutar:
 
@@ -154,153 +350,517 @@ Ejecutar:
 docker image ls
 ```
 
-El resultado esperado debe mostrar:
+Deberán aparecer:
 
 ```text
-REPOSITORY   TAG           IMAGE ID       CREATED             SIZE
-frontend     latest        03a847616af6   About an hour ago   69MB
-backend      latest        03a847616af6   About an hour ago   69MB
-db           latest        03a847616af6   About an hour ago   69MB
+saludos-frontend   1.0
+saludos-backend    1.0
+saludos-db         1.0
 ```
 
----
-
-# Paso 5: Crear contenedores
-
-Ejecutar por imagen:
+Inspeccionar alguna de las imágenes:
 
 ```bash
-docker run -d -n $CONTAINER_NAME $IMAGE_NAME:$IMAGE_TAG 
+docker inspect saludos-backend:1.0
 ```
+
+Revisar sus capas:
+
+```bash
+docker history saludos-backend:1.0
+```
+
+Analizar:
+
+- ¿Qué instrucciones del Dockerfile generaron capas?
+- ¿Cuánto ocupa la imagen?
+- ¿Qué imagen base utiliza?
+- ¿Qué ocurre si volvemos a ejecutar `docker build` sin realizar cambios?
 
 ---
 
-# Paso 6: Verificar el estado de los contenedores
+# Paso 8: Crear los contenedores
+
+Antes de crear los contenedores, intentar responder:
+
+> ¿Podemos simplemente crear los tres contenedores y esperar que se encuentren entre ellos?
+
+Primero necesitaremos proporcionar un mecanismo de comunicación.
+
+---
+
+# Paso 9: Crear una red Docker
+
+Crear una red:
+
+```bash
+docker network create saludos-network
+```
+
+Verificar:
+
+```bash
+docker network ls
+```
+
+Inspeccionar:
+
+```bash
+docker network inspect saludos-network
+```
+
+Esta red permitirá que nuestros contenedores se comuniquen utilizando nombres en lugar de depender directamente de direcciones IP.
+
+---
+
+# Paso 10: Crear el contenedor de PostgreSQL
 
 Ejecutar:
+
+```bash
+docker run -d --name database --network saludos-network -e POSTGRES_DB=saludos_db -e POSTGRES_USER=saludos_user -e POSTGRES_PASSWORD=saludos_password saludos-db:1.0
+```
+
+Verificar:
 
 ```bash
 docker ps
 ```
 
-El resultado esperado debe mostrar:
-
-```text
-REPOSITORY   TAG           IMAGE ID       CREATED             SIZE
-```
-
----
-
-# Paso 8: Crear red entre los contenedores
-
-Ejecutar
+Revisar los logs:
 
 ```bash
-vagrant ssh backend
+docker logs database
 ```
 
-Correr de nuevo los contenedores 
----
+Ingresar a PostgreSQL:
 
-# Paso 9: Probar la aplicación
+```bash
+docker exec -it database psql -U saludos_user -d saludos_db
+```
 
-Desde el computador host abrir:
+Consultar:
+
+```sql
+SELECT * FROM saludos;
+```
+
+Salir:
 
 ```text
-http://localhost
+\q
+```
+
+---
+
+# Paso 13: Crear el contenedor Backend
+
+Ejecutar:
+
+```bash
+docker run -d --name backend --network saludos-network saludos-backend:1.0
+```
+
+Verificar:
+
+```bash
+docker ps
+```
+
+Consultar sus logs:
+
+```bash
+docker logs backend
+```
+
+Probar el endpoint desde dentro del contenedor:
+
+```bash
+docker exec backend python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:5000/health').read().decode())"
+```
+
+Resultado esperado:
+
+```json
+{"status":"OK"}
+```
+
+---
+
+# Paso 14: Crear el contenedor Frontend
+
+Ejecutar:
+
+```bash
+docker run -d --name frontend --network saludos-network -p 8080:80 saludos-frontend:1.0
+```
+
+Verificar:
+
+```bash
+docker ps
+```
+
+Observar la columna `PORTS`.
+
+Analizar:
+
+```text
+8080:80
+ │   │
+ │   └── Puerto dentro del contenedor
+ │
+ └────── Puerto publicado en el host Docker
+```
+
+---
+
+# Paso 15: Validar la red
+
+Inspeccionar nuevamente:
+
+```bash
+docker network inspect saludos-network
+```
+
+Identificar:
+
+- `frontend`
+- `backend`
+- `database`
+
+Observar las direcciones IP asignadas.
+
+Ahora comprobar desde el frontend que el nombre `backend` puede resolverse:
+
+```bash
+docker exec frontend getent hosts backend
+```
+
+Y desde el backend:
+
+```bash
+docker exec backend getent hosts database
+```
+
+Analizar:
+
+> Si Docker asignó direcciones IP a los contenedores, ¿por qué configuramos nuestra aplicación utilizando `backend` y `database` en lugar de esas direcciones?
+
+---
+
+# Paso 16: Probar la aplicación
+
+Si Docker se encuentra ejecutándose directamente en la máquina local, abrir:
+
+```text
+http://localhost:8080
+```
+
+Si Docker está ejecutándose dentro de una máquina virtual, utilizar la dirección IP de esa máquina:
+
+```text
+http://<IP_DE_LA_VM>:8080
 ```
 
 Debe aparecer la aplicación.
 
-Presionar el botón:
+Presionar:
 
 ```text
 Obtener saludo
 ```
 
-Cada vez que se presiona el botón, el sistema debe obtener un saludo aleatorio desde PostgreSQL.
+Cada vez que se presiona el botón, la aplicación debe obtener un saludo aleatorio almacenado en PostgreSQL.
 
 ---
 
-# Paso 16: Analizar el flujo de la aplicación
+# Paso 17: Analizar el flujo de la aplicación
 
-Al presionar el botón ocurre lo siguiente:
+Al presionar el botón ocurre:
 
 ```text
 1. Usuario presiona el botón
-
         ↓
-
-2. Frontend realiza solicitud HTTP
-
+2. Navegador solicita /api/saludo
         ↓
-
 3. Nginx recibe la solicitud
-
         ↓
-
-4. Nginx redirige /api al Backend
-
+4. Nginx resuelve "backend"
         ↓
-
-5. Backend recibe la solicitud
-
+5. Nginx envía la solicitud a backend:5000
         ↓
-
-6. Backend consulta PostgreSQL
-
+6. Flask recibe la solicitud
         ↓
-
-7. PostgreSQL selecciona un saludo aleatorio
-
+7. Backend resuelve "database"
         ↓
-
-8. Backend devuelve JSON
-
+8. Backend se conecta a database:5432
         ↓
-
-9. Frontend muestra el saludo
+9. PostgreSQL selecciona un saludo
+        ↓
+10. Backend devuelve JSON
+        ↓
+11. Frontend muestra el saludo
 ```
 
 ---
 
-# Analisis
+# Paso 18: Explorar los contenedores
 
-> ¿Qué diferencias existen entre el ambiente virtualizado y este contenerizado?
+Listar contenedores:
+
+```bash
+docker ps
+```
+
+Ingresar al backend:
+
+```bash
+docker exec -it backend sh
+```
+
+Observar procesos:
+
+```bash
+ps
+```
+
+Salir:
+
+```bash
+exit
+```
+
+Revisar información detallada:
+
+```bash
+docker inspect backend
+```
+
+Revisar consumo de recursos:
+
+```bash
+docker stats
+```
 
 ---
 
+# Paso 19: Pruebas de fallos
+
+## Fallo de Base de Datos
+
+Detener:
+
+```bash
+docker stop database
+```
+
+Volver a solicitar un saludo.
+
+Revisar:
+
+```bash
+docker logs backend
+```
+
+Iniciar nuevamente:
+
+```bash
+docker start database
+```
+
+## Fallo del Backend
+
+Detener:
+
+```bash
+docker stop backend
+```
+
+Volver a probar la aplicación.
+
+Revisar:
+
+```bash
+docker logs frontend
+```
+
+Iniciar nuevamente:
+
+```bash
+docker start backend
+```
+
+## Fallo del Frontend
+
+Detener:
+
+```bash
+docker stop frontend
+```
+
+Intentar acceder nuevamente a la aplicación.
+
+Iniciar:
+
+```bash
+docker start frontend
+```
+
+---
+
+# Paso 20: ¿Qué ocurre con los cambios dentro de un contenedor?
+
+Ingresar al backend:
+
+```bash
+docker exec -it backend sh
+```
+
+Crear un archivo:
+
+```bash
+echo "creado dentro del contenedor" > /tmp/prueba.txt
+```
+
+Comprobar:
+
+```bash
+cat /tmp/prueba.txt
+```
+
+Salir:
+
+```bash
+exit
+```
+
+Eliminar el contenedor:
+
+```bash
+docker rm -f backend
+```
+
+Crearlo nuevamente:
+
+```bash
+docker run -d --name backend --network saludos-network saludos-backend:1.0
+```
+
+Buscar:
+
+```bash
+docker exec backend cat /tmp/prueba.txt
+```
+
+Analizar:
+
+> ¿Por qué desapareció el archivo?
+
+> ¿Modificamos la imagen original cuando creamos el archivo?
+
+Relacionar el resultado con:
+
+```text
+Imagen
+│
+├── Layers READ ONLY
+│
+└── utilizada para crear
+        ↓
+    Contenedor
+        │
+        └── Writable Layer
+```
+---
+
+# Comparación con el laboratorio de virtualización
+
+| Virtualización | Docker |
+| --- | --- |
+| Vagrantfile | Dockerfile |
+| Box / SO base | Imagen base |
+| Máquina Virtual | Contenedor |
+| `vagrant up` | `docker run` |
+| `vagrant status` | `docker ps` |
+| `vagrant ssh` | `docker exec` |
+| `vagrant halt` | `docker stop` |
+| `vagrant destroy` | `docker rm` |
+| IP privada | Docker Network + DNS |
+| Instalar dependencias en VM | Construirlas dentro de la imagen |
+| Disco de la VM | Writable layer / Volume |
+| Servicio systemd | Proceso principal del contenedor |
+
+---
 # Preguntas para discusión
 
-Al finalizar el laboratorio, discutir en grupo:
+Al finalizar el laboratorio discutir en grupo:
 
-1. ¿Qué problemas resolvió Docker durante el laboratorio?
-2. ¿Qué configuración sigue siendo manual?
-3. ¿Podríamos reconstruir todo el ambiente fácilmente?
-4. ¿Qué ocurriría si otro desarrollador necesitara exactamente el mismo ambiente?
-5. ¿Cómo logramos que la aplicación se conecte entre si?
-6. ¿Que pasaría si queremos persistencia de los datos cuando se desplieguen más versiones de la aplicación?
-7. ¿Cambiaría la arquitectura si aumenta la demanda de la aplicación?
-8. ¿Qué etapas del ciclo de DevOps estamos cubriendo con esta práctica?
+1. ¿Qué diferencias existen entre el ambiente virtualizado y el ambiente contenerizado?
+2. ¿Qué problemas resolvió Docker durante el laboratorio?
+3. ¿Qué diferencia existe entre una imagen y un contenedor?
+4. ¿Por qué los contenedores se comunican mediante nombres y no mediante IPs configuradas manualmente?
+5. ¿Qué ocurre con los cambios realizados dentro de la writable layer cuando eliminamos un contenedor?
+6. ¿Cómo podríamos persistir los datos de PostgreSQL?
+7. ¿Cómo compartiríamos nuestras imágenes con otro desarrollador?
+8. ¿Qué etapas del ciclo DevOps estamos cubriendo con esta práctica?
 
 ---
 
 # Conclusión
 
-Durante este laboratorio se construyó una aplicación distribuida utilizando tres máquinas virtuales independientes.
-
-Cada máquina tuvo una responsabilidad específica:
+Durante este laboratorio implementamos la misma aplicación distribuida construida anteriormente con máquinas virtuales, utilizando ahora **tres contenedores independientes**:
 
 ```text
-Frontend VM
-     │
-     ▼
-Backend VM
-     │
-     ▼
-Database VM
+Frontend Container
+       │
+       ▼
+Backend Container
+       │
+       ▼
+Database Container
 ```
 
-La infraestructura fue creada de manera declarativa mediante Vagrant y parte de la configuración inicial fue automatizada mediante scripts de provisioning.
+Cada componente fue empaquetado mediante una imagen y ejecutado posteriormente como un contenedor.
 
-> Si una aplicación y su infraestructura pueden describirse mediante configuración y código, ¿por qué continuar realizando manualmente las mismas tareas una y otra vez?
+Las imágenes permitieron definir las dependencias necesarias para ejecutar cada componente:
+
+```text
+Dockerfile
+    ↓
+docker build
+    ↓
+Imagen
+    ↓
+docker run
+    ↓
+Contenedor
+```
+
+También creamos una red Docker que permitió que los componentes se comunicaran utilizando nombres:
+
+```text
+frontend
+   │
+   │ backend:5000
+   ▼
+backend
+   │
+   │ database:5432
+   ▼
+database
+```
+
+A diferencia del laboratorio de virtualización, no fue necesario crear un sistema operativo completo para cada componente ni configurar manualmente direcciones IP privadas entre ellos.
+
+Sin embargo, todavía estamos administrando manualmente:
+
+- Tres imágenes.
+- Tres contenedores.
+- Una red.
+- Variables de configuración.
+- Puertos.
+- Persistencia.
+
+> Si nuestra aplicación necesita varios contenedores, redes, volúmenes y configuraciones, ¿cómo podríamos describir toda la aplicación como código y levantarla de manera reproducible mediante una sola definición?
+````
