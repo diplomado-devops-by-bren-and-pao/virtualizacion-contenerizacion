@@ -1,16 +1,10 @@
-# Laboratorio: Arquitectura de Tres Capas con Vagrant
+# Laboratorio: Docker básico
 
 ## Objetivo
 
-En este laboratorio construiremos una arquitectura distribuida básica utilizando **tres máquinas virtuales** creadas y administradas mediante Vagrant.
+En este laboratorio construiremos la misma arquitectura que en vagrant pero utilizando 3 contenedores. 
 
-La aplicación estará compuesta por:
-
-- Un **Frontend**.
-- Un **Backend**.
-- Una **Base de datos PostgreSQL**.
-
-El objetivo no es únicamente crear máquinas virtuales. Durante el laboratorio se analizará cómo diferentes componentes de una aplicación pueden ejecutarse en máquinas independientes y comunicarse a través de una red privada.
+El objetivo es identificar las ventjas y desventajas de una arquitectura basada en contenedores y la previamente construida con VMs-
 
 Al finalizar, tendremos una arquitectura como esta:
 
@@ -20,8 +14,8 @@ Al finalizar, tendremos una arquitectura como esta:
                             │ HTTP :80
                             ▼
                 ┌───────────────────────┐
-                │      FRONTEND VM      │
-                │    192.168.56.11      │
+                │   FRONTEND Container  │
+                │         :80           │
                 │                       │
                 │     Nginx + HTML      │
                 └───────────┬───────────┘
@@ -29,69 +23,30 @@ Al finalizar, tendremos una arquitectura como esta:
                             │ HTTP :5000
                             ▼
                 ┌───────────────────────┐
-                │      BACKEND VM       │
-                │    192.168.56.12      │
+                │   BACKEND Container   │
+                │         :5000         │
                 │                       │
                 │    Python + Flask     │
                 └───────────┬───────────┘
                             │
-                            │ PostgreSQL :5432
+                            │ PostgreSQL:5432
                             ▼
                 ┌───────────────────────┐
-                │     DATABASE VM       │
-                │    192.168.56.13      │
+                │   DATABASE Container  │
+                │         :5432         │
                 │                       │
                 │      PostgreSQL       │
                 └───────────────────────┘
 ```
 
----
-
-# Arquitectura de la aplicación
-
-La aplicación permite al usuario presionar un botón para obtener un saludo aleatorio.
-
-El flujo será el siguiente:
-
-```text
-Usuario
-   │
-   │ Presiona un botón
-   ▼
-Frontend
-   │
-   │ Solicitud HTTP
-   ▼
-Backend
-   │
-   │ Consulta SQL
-   ▼
-Base de datos
-   │
-   │ Saludo aleatorio
-   ▼
-Backend
-   │
-   │ Respuesta JSON
-   ▼
-Frontend
-   │
-   ▼
-Usuario
-```
-
-Cada vez que el usuario presiona el botón, el backend consulta un saludo diferente almacenado en PostgreSQL.
-
----
-
 # Componentes del laboratorio
 
-| Componente | Tecnología | Máquina |
+| Componente | Tecnología | Carpeta |
 |---|---|---|
 | Frontend | HTML + JavaScript + Nginx | `frontend` |
 | Backend | Python + Flask | `backend` |
-| Base de datos | PostgreSQL | `database` |
-| Infraestructura | Vagrant + VirtualBox | Host |
+| Base de datos | PostgreSQL | `db` |
+| Infraestructura | Docker | Contenedor |
 
 ---
 
@@ -99,18 +54,25 @@ Cada vez que el usuario presiona el botón, el backend consulta un saludo difere
 
 Antes de iniciar, verificar que se encuentran instalados:
 
-- VirtualBox
-- Vagrant
+- Docker
 - Git
 
-Verificar las versiones:
+Verificar las versión:
 
 ```bash
-vagrant --version
+docker --version
 ```
 
+Verificar que puedas correr comandos sin sudo:
+
 ```bash
-VBoxManage --version
+docker ps
+```
+
+Sino corre este comando:
+
+```bash
+sudo usermod -aG docker $USER
 ```
 
 ---
@@ -120,21 +82,21 @@ VBoxManage --version
 El repositorio tiene la siguiente estructura:
 
 ```text
-vagrant-three-tier/
+docker-basico/
 │
-├── Vagrantfile
-│
-├── scripts/
-│   ├── frontend.sh
-│   ├── backend.sh
-│   └── database.sh
+├── db/
+│   ├── Dockerfile
+│   └── init.sql
 │
 ├── frontend/
+│   ├── Dockerfile 
+    ├── nginx.conf 
 │   └── index.html
 │
 └── backend/
-    ├── app.py
-    └── requirements.txt
+    ├── Dockerfile
+    ├── requirements.txt
+    └── app.py
 ```
 
 ---
@@ -150,485 +112,102 @@ git clone <URL_DEL_REPOSITORIO>
 Ingresar al directorio:
 
 ```bash
-cd vagrant-three-tier
+cd docker-basico
 ```
 
 ---
 
-# Paso 2: Revisar el Vagrantfile
+# Paso 2: Construir Dockerfiles
 
-Antes de crear las máquinas virtuales, abrir el archivo:
+Teniendo en cuenta las dependencias de ./virtualizacion/scripts
 
 ```text
-Vagrantfile
+Dockerfile
 ```
 
 Identificar los siguientes elementos:
 
-- Número de máquinas virtuales.
-- Nombre de cada máquina.
-- Dirección IP asignada.
-- Memoria.
-- CPU.
-- Red privada.
-- Scripts de provisioning.
-
-Las máquinas que se crearán son:
-
-| Máquina | IP |
-|---|---|
-| Frontend | `192.168.56.11` |
-| Backend | `192.168.56.12` |
-| Database | `192.168.56.13` |
+- FROM
+- RUN
+- COPY
+- CMD
 
 ---
 
-# Paso 3: Crear las máquinas virtuales
+# Paso 3: Crear las imágenes 
 
-Desde la carpeta del proyecto ejecutar:
+Desde la ubicación de cada Dockerfile:
 
 ```bash
-vagrant up
+docker build -t $IMAGE_NAME:$IMAGE_TAG .
 ```
 
-Este comando realizará las siguientes acciones:
-
-```text
-Vagrant
-   │
-   ├── Crea Frontend VM
-   │
-   ├── Crea Backend VM
-   │
-   └── Crea Database VM
-```
-
-Durante el proceso, Vagrant también ejecutará los scripts de provisioning definidos en el `Vagrantfile`.
+Este comando creará cada imagen con una capa por comando/instrucción del Dockerfile
 
 ---
 
-# Paso 4: Verificar el estado de las máquinas
+# Paso 4: Verificar el estado de las imágenes
 
 Ejecutar:
 
 ```bash
-vagrant status
+docker image ls
 ```
 
 El resultado esperado debe mostrar:
 
 ```text
-frontend    running
-backend     running
-database    running
+REPOSITORY   TAG           IMAGE ID       CREATED             SIZE
+frontend     latest        03a847616af6   About an hour ago   69MB
+backend      latest        03a847616af6   About an hour ago   69MB
+db           latest        03a847616af6   About an hour ago   69MB
 ```
 
 ---
 
-# Paso 5: Explorar las máquinas virtuales
+# Paso 5: Crear contenedores
 
-Ingresar a la máquina frontend:
-
-```bash
-vagrant ssh frontend
-```
-
-Salir:
+Ejecutar por imagen:
 
 ```bash
-exit
-```
-
-Ingresar al backend:
-
-```bash
-vagrant ssh backend
-```
-
-Salir:
-
-```bash
-exit
-```
-
-Ingresar a la base de datos:
-
-```bash
-vagrant ssh database
-```
-
-Salir:
-
-```bash
-exit
+docker run -d -n $CONTAINER_NAME $IMAGE_NAME:$IMAGE_TAG 
 ```
 
 ---
 
-# Paso 6: Validar conectividad entre las máquinas
-
-Ingresar a la máquina frontend:
-
-```bash
-vagrant ssh frontend
-```
-
-Probar conectividad con el backend:
-
-```bash
-ping -c 3 192.168.56.12
-```
-
-Probar conectividad con la base de datos:
-
-```bash
-ping -c 3 192.168.56.13
-```
-
-Salir:
-
-```bash
-exit
-```
-
-Ahora ingresar al backend:
-
-```bash
-vagrant ssh backend
-```
-
-Probar conectividad con la base de datos:
-
-```bash
-ping -c 3 192.168.56.13
-```
-
-Salir:
-
-```bash
-exit
-```
-
----
-
-# Paso 7: Verificar PostgreSQL
-
-La base de datos fue instalada y configurada automáticamente mediante el script:
-
-```text
-scripts/database.sh
-```
-
-Ingresar a la máquina:
-
-```bash
-vagrant ssh database
-```
-
-Verificar el servicio:
-
-```bash
-sudo systemctl status postgresql
-```
-
-Salir de la máquina:
-
-```bash
-exit
-```
-
----
-
-# Paso 8: Verificar conexión desde Backend hacia Database
-
-Ingresar al backend:
-
-```bash
-vagrant ssh backend
-```
-
-Conectarse a PostgreSQL:
-
-```bash
-psql \
-  -h 192.168.56.13 \
-  -U saludos_user \
-  -d saludos_db
-```
-
-Cuando se solicite la contraseña utilizar:
-
-```text
-saludos_password
-```
-
-Consultar los saludos:
-
-```sql
-SELECT * FROM saludos;
-```
-
-Salir de PostgreSQL:
-
-```sql
-\q
-```
-
-Salir de la máquina:
-
-```bash
-exit
-```
-
----
-
-# Paso 9: Desplegar el Backend
-
-Ingresar a la máquina backend:
-
-```bash
-vagrant ssh backend
-```
-
-Verificar los archivos disponibles:
-
-```bash
-ls /vagrant/backend
-```
-
-Crear el directorio de la aplicación:
-
-```bash
-sudo mkdir -p /opt/saludos-backend
-```
-
-Copiar los archivos:
-
-```bash
-sudo cp /vagrant/backend/* /opt/saludos-backend/
-```
-
-Asignar permisos:
-
-```bash
-sudo chown -R vagrant:vagrant /opt/saludos-backend
-```
-
-Ingresar al directorio:
-
-```bash
-cd /opt/saludos-backend
-```
-
----
-
-# Paso 10: Crear el entorno Python
-
-Crear un entorno virtual:
-
-```bash
-python3 -m venv venv
-```
-
-Activarlo:
-
-```bash
-source venv/bin/activate
-```
-
-Instalar las dependencias:
-
-```bash
-pip install -r requirements.txt
-```
-
----
-
-# Paso 11: Ejecutar el Backend
+# Paso 6: Verificar el estado de los contenedores
 
 Ejecutar:
 
 ```bash
-python app.py
+docker ps
 ```
 
-El backend debería iniciar en:
+El resultado esperado debe mostrar:
 
 ```text
-http://0.0.0.0:5000
-```
-
-En otra terminal, probar el endpoint:
-
-```bash
-curl http://192.168.56.12:5000/health
-```
-
-Resultado esperado:
-
-```json
-{
-    "status": "OK"
-}
-```
-
-Probar el endpoint de saludo:
-
-```bash
-curl http://192.168.56.12:5000/saludo
-```
-
-Cada ejecución debería devolver un saludo aleatorio:
-
-```json
-{
-    "mensaje": "¡Saludos desde PostgreSQL!"
-}
-```
-
-Detener la aplicación utilizando:
-
-```text
-CTRL + C
+REPOSITORY   TAG           IMAGE ID       CREATED             SIZE
 ```
 
 ---
 
-# Paso 12: Ejecutar el Backend como servicio
+# Paso 8: Crear red entre los contenedores
 
-Crear el servicio:
-
-```bash
-sudo vim /etc/systemd/system/saludos-backend.service
-```
-
-Agregar:
-
-```ini
-[Unit]
-Description=Saludos Backend
-After=network.target
-
-[Service]
-User=vagrant
-WorkingDirectory=/opt/saludos-backend
-ExecStart=/opt/saludos-backend/venv/bin/python /opt/saludos-backend/app.py
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Guardar el archivo y recargar la configuración:
+Ejecutar
 
 ```bash
-sudo systemctl daemon-reload
+vagrant ssh backend
 ```
 
-Habilitar el servicio:
-
-```bash
-sudo systemctl enable saludos-backend
-```
-
-Iniciar:
-
-```bash
-sudo systemctl start saludos-backend
-```
-
-Verificar:
-
-```bash
-sudo systemctl status saludos-backend
-```
-
+Correr de nuevo los contenedores 
 ---
 
-# Paso 13: Desplegar el Frontend
-
-Ingresar a la máquina:
-
-```bash
-vagrant ssh frontend
-```
-
-Verificar los archivos:
-
-```bash
-ls /vagrant/frontend
-```
-
-Copiar la aplicación:
-
-```bash
-sudo cp /vagrant/frontend/index.html /var/www/html/index.html
-```
-
----
-
-# Paso 14: Configurar Nginx
-
-Editar la configuración:
-
-```bash
-sudo nano /etc/nginx/sites-available/default
-```
-
-Utilizar la siguiente configuración:
-
-```nginx
-server {
-
-    listen 80 default_server;
-
-    listen [::]:80 default_server;
-
-    root /var/www/html;
-
-    index index.html;
-
-    location / {
-
-        try_files $uri $uri/ =404;
-
-    }
-
-    location /api/ {
-
-        proxy_pass http://192.168.56.12:5000/;
-
-        proxy_set_header Host $host;
-
-        proxy_set_header X-Real-IP $remote_addr;
-
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
-    }
-
-}
-```
-
-Validar la configuración:
-
-```bash
-sudo nginx -t
-```
-
-Reiniciar Nginx:
-
-```bash
-sudo systemctl restart nginx
-```
-
----
-
-# Paso 15: Probar la aplicación
+# Paso 9: Probar la aplicación
 
 Desde el computador host abrir:
 
 ```text
-http://192.168.56.11
+http://localhost
 ```
 
 Debe aparecer la aplicación.
@@ -685,158 +264,9 @@ Al presionar el botón ocurre lo siguiente:
 
 ---
 
-# Paso 17: Prueba de fallos
-
-## Fallo de Base de Datos
-
-Ingresar a la máquina database:
-
-```bash
-vagrant ssh database
-```
-
-Detener PostgreSQL:
-
-```bash
-sudo systemctl stop postgresql
-```
-
-Volver al navegador y presionar el botón.
-
-Reiniciar PostgreSQL:
-
-```bash
-sudo systemctl start postgresql
-```
-
----
-
-## Fallo del Backend
-
-Ingresar al backend:
-
-```bash
-vagrant ssh backend
-```
-
-Detener el servicio:
-
-```bash
-sudo systemctl stop saludos-backend
-```
-
-Volver a probar la aplicación.
-
-Reiniciar:
-
-```bash
-sudo systemctl start saludos-backend
-```
-
----
-
-## Fallo del Frontend
-
-Ingresar:
-
-```bash
-vagrant ssh frontend
-```
-
-Detener Nginx:
-
-```bash
-sudo systemctl stop nginx
-```
-
-Intentar acceder nuevamente a:
-
-```text
-http://192.168.56.11
-```
-
-Reiniciar:
-
-```bash
-sudo systemctl start nginx
-```
-
----
-
-# Paso 18: Experimentar con los saludos
-
-Ingresar a PostgreSQL:
-
-```bash
-vagrant ssh database
-```
-
-Ingresar a la base de datos:
-
-```bash
-sudo -u postgres psql -d saludos_db
-```
-
-Consultar los registros:
-
-```sql
-SELECT * FROM saludos;
-```
-
-Agregar un nuevo saludo:
-
-```sql
-INSERT INTO saludos (mensaje)
-VALUES ('¡Nuevo saludo agregado durante el laboratorio!');
-```
-
-Salir:
-
-```sql
-\q
-```
-
-Volver a presionar el botón varias veces hasta obtener el nuevo saludo.
-
----
-
-# Paso 19: Administrar las máquinas con Vagrant
-
-Detener todas las máquinas:
-
-```bash
-vagrant halt
-```
-
-Iniciarlas nuevamente:
-
-```bash
-vagrant up
-```
-
-Verificar el estado:
-
-```bash
-vagrant status
-```
-
-Destruir una máquina específica:
-
-```bash
-vagrant destroy backend
-```
-
-Destruir todo el ambiente:
-
-```bash
-vagrant destroy -f
-```
-
----
-
 # Analisis
 
-> ¿Qué actividades realizadas durante el laboratorio deberían continuar siendo manuales y cuáles deberían automatizarse?
+> ¿Qué diferencias existen entre el ambiente virtualizado y este contenerizado?
 
 ---
 
@@ -844,14 +274,14 @@ vagrant destroy -f
 
 Al finalizar el laboratorio, discutir en grupo:
 
-1. ¿Qué problemas resolvió Vagrant durante el laboratorio?
+1. ¿Qué problemas resolvió Docker durante el laboratorio?
 2. ¿Qué configuración sigue siendo manual?
 3. ¿Podríamos reconstruir todo el ambiente fácilmente?
 4. ¿Qué ocurriría si otro desarrollador necesitara exactamente el mismo ambiente?
-5. ¿Qué tareas podrían convertirse en scripts?
-6. ¿En qué momento sería útil utilizar una herramienta de Configuration Management?
-7. ¿Qué partes podrían ejecutarse posteriormente dentro de contenedores?
-8. ¿Cambiaría la arquitectura si pasáramos de 3 máquinas virtuales a decenas de aplicaciones?
+5. ¿Cómo logramos que la aplicación se conecte entre si?
+6. ¿Que pasaría si queremos persistencia de los datos cuando se desplieguen más versiones de la aplicación?
+7. ¿Cambiaría la arquitectura si aumenta la demanda de la aplicación?
+8. ¿Qué etapas del ciclo de DevOps estamos cubriendo con esta práctica?
 
 ---
 

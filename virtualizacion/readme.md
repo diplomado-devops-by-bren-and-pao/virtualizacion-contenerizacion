@@ -120,7 +120,7 @@ VBoxManage --version
 El repositorio tiene la siguiente estructura:
 
 ```text
-vagrant-three-tier/
+virtualizacion/
 │
 ├── Vagrantfile
 │
@@ -150,7 +150,7 @@ git clone <URL_DEL_REPOSITORIO>
 Ingresar al directorio:
 
 ```bash
-cd vagrant-three-tier
+cd virtualizacion
 ```
 
 ---
