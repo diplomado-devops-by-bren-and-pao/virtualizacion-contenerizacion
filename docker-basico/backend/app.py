@@ -7,7 +7,7 @@ app = Flask(__name__)
 def get_connection():
 
     return psycopg2.connect(
-        host="192.168.56.13",
+        host="database",
         database="saludos_db",
         user="saludos_user",
         password="saludos_password",
