@@ -1,5 +1,6 @@
 from flask import Flask, jsonify
 import psycopg2
+import os
 
 app = Flask(__name__)
 
@@ -7,11 +8,11 @@ app = Flask(__name__)
 def get_connection():
 
     return psycopg2.connect(
-        host="database",
-        database="saludos_db",
-        user="saludos_user",
-        password="saludos_password",
-        port=5432
+        host=os.getenv("DB_HOST", "database"),
+        database=os.getenv("DB_NAME", "saludos_db"),
+        user=os.getenv("DB_USER", "saludos_user"),
+        password=os.getenv("DB_PASSWORD"),
+        port=int(os.getenv("DB_PORT", "5432"))
     )
 
 @app.route("/health", methods=["GET"])
@@ -21,7 +22,7 @@ def health():
 @app.route("/config", methods=["GET"])
 def config():
     return jsonify({
-        "environment": "default"
+        "environment": os.getenv("APP_ENV", "default")
     })
 
 @app.route("/saludo", methods=["GET"])
