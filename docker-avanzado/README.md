@@ -524,34 +524,32 @@ postgres_data          ─────→  datos PostgreSQL
 
 # 15. Probar persistencia
 
-Entrar a PostgreSQL:
+Ejecutar:
 
 ```bash
-docker compose exec database psql -U saludos_user -d saludos_db
+docker docker compose --env-file .env.dev exec database \
+psql -U saludos_user -d saludos_db \
+-c "INSERT INTO saludos (mensaje) VALUES ('Este saludo sobrevivirá al contenedor');"
 ```
 
 Consultar:
 
-```sql
-\dt
-```
-
-Salir:
-
-```sql
-\q
+```bash
+docker compose --env-file .env.dev exec database \
+psql -U saludos_user -d saludos_db \
+-c "SELECT * FROM saludos;"
 ```
 
 Eliminar contenedores:
 
 ```bash
-docker compose down
+docker compose --env-file .env.dev down
 ```
 
 Volver a levantar:
 
 ```bash
-docker compose up -d
+docker compose --env-file .env.dev up -d
 ```
 
 Consultar nuevamente los datos.
@@ -593,7 +591,7 @@ docker compose down -v
 
 Un contenedor `running` no necesariamente significa que la aplicación esté lista.
 
-Agregar a PostgreSQL:
+Agregar al servicio de database:
 
 ```yaml
 healthcheck:
@@ -764,8 +762,6 @@ docker volume inspect <VOLUME_NAME>
 
 **Pregunta:** ¿por qué seguimos utilizando comandos `docker` si estamos utilizando Compose?
 
-Porque Compose define y administra la aplicación, mientras que los recursos finales continúan siendo recursos Docker.
-
 ---
 
 # 21. Validación final
@@ -896,8 +892,7 @@ Modificar un archivo del frontend compartido mediante bind mount y verificar el 
 
 Al finalizar, la aplicación que en Docker Básico requería administrar varios contenedores de forma individual podrá ser definida como una aplicación multicontenedor mediante Docker Compose.
 
-El estudiante deberá poder explicar:
-
+Aprendimos:
 - Dockerfile → cómo se construye una imagen.
 - Image → artefacto de la aplicación.
 - Container → instancia ejecutable.
@@ -913,3 +908,81 @@ El estudiante deberá poder explicar:
 - Logs / exec / inspect → diagnóstico.
 
 La meta no es memorizar un `compose.yml` terminado, sino aprender a construirlo a partir de las necesidades reales de una aplicación.
+
+# ¿Qué sigue después de Docker Compose?
+
+Durante esta clase transformamos una aplicación compuesta por contenedores individuales en una aplicación **reproducible y gestionable con Docker Compose**.
+
+Ahora podemos definir en código:
+
+- Los servicios de la aplicación.
+- La comunicación entre contenedores.
+- Las variables de configuración.
+- La persistencia de los datos.
+- Las condiciones de salud de los servicios.
+- La forma de levantar y validar toda la aplicación.
+
+Pero queda una pregunta:
+
+> **Si un desarrollador modifica `app.py`, hace `git push` y necesitamos llevar ese cambio a otro ambiente, ¿tendríamos que ejecutar todos estos pasos manualmente?**
+
+### De un proceso manual a un proceso automatizado
+
+Hasta ahora el flujo ha sido principalmente manual:
+
+```text
+Modificar código
+      ↓
+Construir imagen
+      ↓
+Validar
+      ↓
+Levantar aplicación
+      ↓
+Verificar
+```
+
+En un entorno profesional queremos que parte de este proceso pueda ejecutarse automáticamente cada vez que se produce un cambio en el código.
+
+```text
+Código
+   ↓
+Git Push
+   ↓
+Validaciones automáticas
+   ↓
+Build de la imagen
+   ↓
+Pruebas
+   ↓
+Entrega / despliegue
+```
+
+Aquí aparece **CI/CD** como el siguiente paso natural del proceso.
+
+### ¿Qué relación tiene con lo aprendido?
+
+```text
+Dockerfile
+    ↓
+Construye la imagen
+
+Docker Compose
+    ↓
+Define y ejecuta la aplicación
+
+CI/CD
+    ↓
+Automatiza el proceso de validar,
+construir y entregar los cambios
+```
+
+La idea no es estudiar CI/CD en esta clase, sino identificar el problema que resuelve:
+
+> **¿Cómo hacemos para que el proceso que acabamos de ejecutar manualmente pueda repetirse de forma automática, confiable y trazable?**
+
+### Pregunta de cierre
+
+**Si mañana hacemos un cambio en `app.py`, ¿qué pasos de este laboratorio podríamos automatizar para que el cambio llegue de forma segura al siguiente ambiente?**
+
+> **La siguiente clase: CI/CD.**
