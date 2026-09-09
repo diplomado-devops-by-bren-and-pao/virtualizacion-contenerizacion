@@ -5,78 +5,131 @@
 En la sesión anterior construimos y ejecutamos una aplicación compuesta por tres contenedores:
 
 ```text
-Frontend
-   ↓
-Backend
-   ↓
+
+Usuario
+
+   ↓
+
+Frontend / Nginx
+
+   ↓
+
+Backend / Flask
+
+   ↓
+
 PostgreSQL
+
 ```
 
-En esta sesión **no vamos a reconstruir la aplicación**. Vamos a reutilizar las imágenes:
+En esta sesión **no vamos a reconstruir toda la aplicación desde cero**. Vamos a reutilizar las imágenes construidas anteriormente:
 
 ```text
+
 saludos-frontend:1.0
+
 saludos-backend:1.0
+
 saludos-db:1.0
+
 ```
 
 El objetivo es evolucionar la administración manual de estos contenedores hacia una aplicación definida y administrada mediante Docker Compose.
 
-> **Docker Básico:** construir y ejecutar contenedores.  
+> **Docker Básico:** construir y ejecutar contenedores.
+
+>
+
 > **Docker Avanzado:** componer, configurar, persistir, verificar y diagnosticar una aplicación multicontenedor.
 
 ---
 
 # 1. Prerrequisitos
 
-Verificar Docker y Compose:
-
 ```bash
+
 docker version
+
 docker compose version
-```
 
-Verificar las imágenes de la sesión anterior:
-
-```bash
 docker image ls
+
 ```
 
 Debemos encontrar:
 
 ```text
+
 saludos-frontend:1.0
+
 saludos-backend:1.0
+
 saludos-db:1.0
+
 ```
 
 ---
 
 # 2. Punto de partida
 
-La aplicación anterior está organizada como:
+La aplicación anterior está organizada así:
 
 ```text
+
 docker-basico/
-├── backend/
+
+│
+
 ├── frontend/
+
+│   ├── Dockerfile
+
+│   ├── index.html
+
+│   └── nginx.conf
+
+│
+
+├── backend/
+
+│   ├── Dockerfile
+
+│   ├── app.py
+
+│   └── requirements.txt
+
+│
+
 └── db/
+
+    ├── Dockerfile
+
+    └── init.sql
+
 ```
 
-| Componente | Imagen | Responsabilidad |
-|---|---|---|
-| Frontend | `saludos-frontend:1.0` | Interfaz web / Nginx |
-| Backend | `saludos-backend:1.0` | API Flask |
-| Database | `saludos-db:1.0` | PostgreSQL |
-
-Antes los administrábamos individualmente. Ahora vamos a construir una definición única:
+Arquitectura:
 
 ```text
-docker-avanzado/
-├── compose.yml
-├── .env.dev
-├── .env.prod
-└── README.md
+
+Frontend
+
+   │
+
+   │ HTTP :5000
+
+   ▼
+
+Backend
+
+   │
+
+   │ PostgreSQL :5432
+
+   ▼
+
+Database
+
 ```
 
 ---
@@ -84,472 +137,1493 @@ docker-avanzado/
 # 3. Reconocer el estado actual
 
 ```bash
+
 docker ps -a
+
 docker network ls
+
 docker volume ls
+
 ```
 
-Identifica qué elementos necesitábamos configurar manualmente en Docker Básico:
+Identificar qué elementos configurábamos manualmente:
 
-- imágenes;
-- nombres;
-- puertos;
-- red;
-- variables;
-- almacenamiento;
-- dependencias.
+- Contenedores
 
-**Pregunta:** ¿cuáles de estos elementos deberían formar parte de la definición de la aplicación?
+- Nombres
+
+- Puertos
+
+- Red
+
+- Hostnames
+
+- Configuración
+
+- Almacenamiento
+
+- Dependencias
+
+### Pregunta
+
+¿Qué información debería formar parte de una definición reproducible de la aplicación?
 
 ---
 
-# 4. Crear el Compose desde cero
+# 4. Crear `compose.yml` desde cero
 
-El archivo `compose.yml` se encuentra intencionalmente vacío.
+El archivo `compose.yml` estará inicialmente vacío.
 
-Durante el laboratorio lo construiremos progresivamente.
-
-No se entrega una solución final para copiar.
-
-La metodología será:
-
-```text
-Concepto
-   ↓
-Agregar configuración
-   ↓
-Validar
-   ↓
-Ejecutar
-   ↓
-Observar
-```
-
----
-
-# 5. Primera pieza: servicios
-
-Comenzar:
+Agregar:
 
 ```yaml
-services:
-```
 
-Agregar los tres servicios:
-
-```yaml
 services:
 
-  frontend:
-    image: saludos-frontend:1.0
+  frontend:
 
-  backend:
-    image: saludos-backend:1.0
+    image: saludos-frontend:1.0
 
-  database:
-    image: saludos-db:1.0
+  backend:
+
+    image: saludos-backend:1.0
+
+  database:
+
+    image: saludos-db:1.0
+
 ```
 
 Validar:
 
 ```bash
+
 docker compose config
+
 ```
 
 Levantar:
 
 ```bash
+
 docker compose up -d
+
 ```
 
 Verificar:
 
 ```bash
-docker compose ps
-```
 
-**Pregunta:** ¿qué información del laboratorio anterior todavía no está representada?
+docker compose ps
+
+```
 
 ---
 
-# 6. Frontend: publicar el servicio
+# 5. Publicar el Frontend
 
-El frontend necesita ser accesible desde el host.
-
-Agregar:
+Modificar:
 
 ```yaml
+
 frontend:
-  image: saludos-frontend:1.0
-  ports:
-    - "8080:80"
+
+  image: saludos-frontend:1.0
+
+  ports:
+
+    - "8080:80"
+
 ```
 
 Aplicar:
 
 ```bash
+
 docker compose up -d
+
 ```
 
-Verificar:
+Probar:
 
 ```text
+
 http://localhost:8080
+
 ```
 
-`ports` publica un puerto del contenedor hacia el host. No significa que todos los servicios deban publicar sus puertos.
+`ports` publica un puerto del contenedor hacia el host.
+
+Backend y PostgreSQL no necesitan publicar sus puertos al host para comunicarse internamente.
 
 ---
 
-# 7. Networking administrado por Compose
-
-Compose crea y administra una red para los servicios del proyecto.
+# 6. Networking administrado por Compose
 
 Verificar:
 
 ```bash
+
 docker network ls
+
 ```
 
-Inspeccionar la red:
+Inspeccionar la red creada por Compose:
 
 ```bash
+
 docker network inspect <NOMBRE_DE_LA_RED>
+
 ```
 
-La arquitectura:
+Arquitectura:
 
 ```text
+
 Frontend
-   |
-   | Docker Network
-   v
+
+   |
+
+   | Docker Network
+
+   ↓
+
 Backend
-   |
-   | Docker Network
-   v
+
+   |
+
+   | Docker Network
+
+   ↓
+
 Database
+
 ```
 
-El objetivo es dejar de depender de la creación manual de `saludos-network`.
+En Docker Básico creamos manualmente `saludos-network`. Ahora Compose administra esta red.
 
 ---
 
-# 8. Service Discovery
+# 7. Service Discovery
 
-El backend debe encontrar PostgreSQL utilizando el nombre lógico del servicio:
+El backend encuentra PostgreSQL utilizando el nombre del servicio:
 
 ```text
+
 database
+
 ```
 
-Por tanto:
-
-```text
-DB_HOST=database
-```
-
-Verificar desde el backend:
+Verificar:
 
 ```bash
+
 docker compose exec backend getent hosts database
+
 ```
 
-Si la imagen no dispone de `getent`, utilizar una herramienta equivalente disponible dentro del contenedor.
+La comunicación interna será:
 
-La aplicación conoce el nombre del servicio y Docker resuelve su dirección interna.
+```text
+
+Backend → database:5432
+
+```
+
+No debemos utilizar una IP fija del contenedor.
 
 ---
 
-# 9. Environment Variables
+# 8. Identificar configuración hardcodeada en `app.py`
 
-Mover la configuración del backend y PostgreSQL a variables:
+Abrir:
+
+```text
+
+backend/app.py
+
+```
+
+Actualmente:
+
+```python
+
+def get_connection():
+
+    return psycopg2.connect(
+
+        host="database",
+
+        database="saludos_db",
+
+        user="saludos_user",
+
+        password="saludos_password",
+
+        port=5432
+
+    )
+
+```
+
+Tenemos valores hardcodeados:
+
+```text
+
+database
+
+saludos_db
+
+saludos_user
+
+saludos_password
+
+5432
+
+```
+
+Queremos separar:
+
+```text
+
+Código
+
+   ↓
+
+Variables de entorno
+
+   ↓
+
+Configuración del ambiente
+
+```
+
+---
+
+# 9. Refactorizar `app.py`
+
+Agregar:
+
+```python
+
+import os
+
+```
+
+El inicio queda:
+
+```python
+
+from flask import Flask, jsonify
+
+import psycopg2
+
+import os
+
+app = Flask(__name__)
+
+```
+
+Cambiar `get_connection()` por:
+
+```python
+
+def get_connection():
+
+    return psycopg2.connect(
+
+        host=os.getenv("DB_HOST", "database"),
+
+        database=os.getenv("DB_NAME", "saludos_db"),
+
+        user=os.getenv("DB_USER", "saludos_user"),
+
+        password=os.getenv("DB_PASSWORD"),
+
+        port=int(os.getenv("DB_PORT", "5432"))
+
+    )
+
+```
+
+El mapeo será:
+
+```text
+
+DB_HOST       → database
+
+DB_NAME       → saludos_db
+
+DB_USER       → saludos_user
+
+DB_PASSWORD   → contraseña
+
+DB_PORT       → 5432
+
+```
+
+Además de las variables utilizadas para PostgreSQL, queremos que la aplicación conozca en qué ambiente está ejecutándose.
+
+```python
+
+@app.route("/config", methods=["GET"])
+
+def config():
+
+    return jsonify({
+
+        "environment": os.getenv("APP_ENV", "default")
+
+    })
+
+```
+
+La variable `APP_ENV` tendrá un valor diferente según el ambiente.
+
+---
+
+# 10. Reconstruir Backend
+
+Como modificamos `app.py`, debemos reconstruir:
+
+```bash
+
+docker build -t saludos-backend:2.0 ./backend
+
+```
+
+Verificar:
+
+```bash
+
+docker image ls
+
+```
+
+Actualizar Compose:
 
 ```yaml
-database:
-  image: saludos-db:1.0
-  environment:
-    POSTGRES_DB: ${POSTGRES_DB}
-    POSTGRES_USER: ${POSTGRES_USER}
-    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
 
 backend:
-  image: saludos-backend:1.0
-  environment:
-    DB_HOST: ${DB_HOST}
-    DB_PORT: ${DB_PORT}
-    DB_NAME: ${POSTGRES_DB}
-    DB_USER: ${POSTGRES_USER}
-    DB_PASSWORD: ${POSTGRES_PASSWORD}
+
+  image: saludos-backend:2.0
+
 ```
-
-Ajustar nombres si la aplicación utiliza otros nombres.
-
-Validar:
-
-```bash
-docker compose config
-```
-
-Comprobar:
-
-```bash
-docker compose exec backend env | grep DB_
-```
-
----
-
-# 10. Configuración por ambiente
-
-Una misma imagen puede ejecutarse con configuraciones diferentes.
-
-Crearemos:
-
-```text
-.env.dev
-.env.prod
-```
-
-## `.env.dev`
-
-```env
-POSTGRES_DB=saludos_db
-POSTGRES_USER=saludos_user
-POSTGRES_PASSWORD=saludos_dev_password
-
-DB_HOST=database
-DB_PORT=5432
-
-FRONTEND_PORT=8080
-APP_ENV=development
-```
-
-## `.env.prod`
-
-```env
-POSTGRES_DB=saludos_db
-POSTGRES_USER=saludos_user
-POSTGRES_PASSWORD=saludos_prod_password
-
-DB_HOST=database
-DB_PORT=5432
-
-FRONTEND_PORT=80
-APP_ENV=production
-```
-
-> Los valores son solamente para laboratorio. En un ambiente real, las credenciales sensibles deben gestionarse mediante una solución de secretos.
-
----
-
-# 11. Seleccionar el ambiente
-
-Para desarrollo:
-
-```bash
-docker compose --env-file .env.dev up -d
-```
-
-Para producción:
-
-```bash
-docker compose --env-file .env.prod up -d
-```
-
-Validar antes de levantar:
-
-```bash
-docker compose --env-file .env.dev config
-```
-
-```bash
-docker compose --env-file .env.prod config
-```
-
-Modelo:
-
-```text
-                 compose.yml
-                     |
-          ┌──────────┴──────────┐
-          ↓                     ↓
-      .env.dev              .env.prod
-          ↓                     ↓
-   DEVELOPMENT             PRODUCTION
-```
-
-El Compose describe la aplicación. El archivo de ambiente aporta valores específicos del entorno.
-
-`.env` no debe confundirse con un mecanismo de secret management.
-
----
-
-# 12. Docker Volume: persistencia
-
-Los datos de PostgreSQL no deben depender del ciclo de vida del contenedor.
-
-Declarar:
-
-```yaml
-volumes:
-  postgres_data:
-```
-
-Montar:
-
-```yaml
-database:
-  image: saludos-db:1.0
-  volumes:
-    - postgres_data:/var/lib/postgresql/data
-```
-
-Verificar:
-
-```bash
-docker volume ls
-```
-
-Modelo:
-
-```text
-Database Container
-       |
-       | mount
-       v
-postgres_data
-       |
-       v
-Persistent Data
-```
-
----
-
-# 13. Named Volume vs Bind Mount
-
-En este laboratorio diferenciaremos dos mecanismos.
-
-### Named Volume
-
-Para los datos de PostgreSQL:
-
-```yaml
-- postgres_data:/var/lib/postgresql/data
-```
-
-Docker administra el almacenamiento.
-
-### Bind Mount
-
-Para compartir archivos del repositorio:
-
-```yaml
-- ./frontend/index.html:/usr/share/nginx/html/index.html:ro
-```
-
-El bind mount conecta una ruta del host con una ruta del contenedor.
-
----
-
-# 14. Compartir contenido del repositorio
-
-La estructura del repositorio anterior es:
-
-```text
-docker-basico/
-│
-├── frontend/
-│   ├── Dockerfile
-│   ├── index.html
-│   └── nginx.conf
-│
-├── backend/
-│   ├── Dockerfile
-│   ├── app.py
-│   └── requirements.txt
-│
-└── db/
-    ├── Dockerfile
-    └── init.sql
-```
-
-## Frontend
-
-Podemos compartir:
-
-```yaml
-frontend:
-  volumes:
-    - ./frontend/index.html:/usr/share/nginx/html/index.html:ro
-    - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-```
-
-## Database
-
-El script de inicialización puede compartirse:
-
-```yaml
-database:
-  volumes:
-    - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    - postgres_data:/var/lib/postgresql/data
-```
-
-No debemos montar `./db` sobre `/var/lib/postgresql/data`: `init.sql` es un archivo de inicialización; el named volume contiene los datos de PostgreSQL.
-
-## Backend
-
-Antes de montar la carpeta completa del backend, inspeccionar la imagen y determinar su directorio de trabajo:
-
-```bash
-docker image inspect saludos-backend:1.0
-```
-
-No asumir `/app` sin comprobarlo.
 
 ### Concepto
 
+Cambiar código dentro de la imagen requiere reconstruirla.
+
+Cambiar valores externos de configuración no requiere reconstruirla.
+
+---
+
+# 11. Revisar el Dockerfile de Database
+
+El Dockerfile original es:
+
+```dockerfile
+
+FROM postgres:16
+
+ENV POSTGRES_DB=saludos_db
+
+ENV POSTGRES_USER=saludos_user
+
+ENV POSTGRES_PASSWORD=saludos_password
+
+COPY init.sql /docker-entrypoint-initdb.d/
+
+```
+
+Actualmente mezcla:
+
 ```text
-REPOSITORIO                    CONTENEDOR
 
-./frontend/index.html  ─────→  archivo de Nginx
-./frontend/nginx.conf  ─────→  configuración Nginx
-./db/init.sql          ─────→  script de inicialización
+Imagen
 
-Docker Volume
-postgres_data          ─────→  datos PostgreSQL
++
+
+Configuración
+
++
+
+Script de inicialización
+
+```
+
+Queremos externalizar la configuración.
+
+---
+
+# 12. Modificar `db/Dockerfile`
+
+Eliminar:
+
+```dockerfile
+
+ENV POSTGRES_DB=saludos_db
+
+ENV POSTGRES_USER=saludos_user
+
+ENV POSTGRES_PASSWORD=saludos_password
+
+```
+
+Mantener:
+
+```dockerfile
+
+FROM postgres:16
+
+COPY init.sql /docker-entrypoint-initdb.d/
+
+```
+
+Ahora:
+
+```text
+
+Dockerfile
+
+   ↓
+
+PostgreSQL + init.sql
+
+```
+
+La configuración será responsabilidad de Compose.
+
+---
+
+# 13. Reconstruir Database
+
+```bash
+
+docker build -t saludos-db:2.0 ./db
+
+```
+
+Actualizar:
+
+```yaml
+
+database:
+
+  image: saludos-db:2.0
+
 ```
 
 ---
 
-# 15. Probar persistencia
+# 14. Configurar PostgreSQL mediante variables
 
-Ejecutar:
+Agregar:
+
+```yaml
+
+database:
+
+  image: saludos-db:2.0
+
+  environment:
+
+    POSTGRES_DB: ${POSTGRES_DB}
+
+    POSTGRES_USER: ${POSTGRES_USER}
+
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+```
+
+---
+
+# 15. Configurar Backend mediante variables
+
+Agregar:
+
+```yaml
+
+backend:
+
+  image: saludos-backend:2.0
+
+  environment:
+
+    DB_HOST: ${DB_HOST}
+
+    DB_PORT: ${DB_PORT}
+
+    DB_NAME: ${POSTGRES_DB}
+
+    DB_USER: ${POSTGRES_USER}
+
+    DB_PASSWORD: ${POSTGRES_PASSWORD}
+
+```
+
+La cadena queda:
+
+```text
+
+.env
+
+  ↓
+
+Compose
+
+  ↓
+
+Container environment
+
+  ↓
+
+app.py
+
+  ↓
+
+PostgreSQL
+
+```
+
+---
+
+# 16. Crear `.env.dev`
+
+Crear:
+
+```text
+
+.env.dev
+
+```
+
+Con:
+
+```env
+
+POSTGRES_DB=saludos_db
+
+POSTGRES_USER=saludos_user
+
+POSTGRES_PASSWORD=saludos_dev_password
+
+DB_HOST=database
+
+DB_PORT=5432
+
+BACKEND_HOST=backend
+
+BACKEND_PORT=5000
+
+FRONTEND_PORT=8080
+
+APP_ENV=development
+
+```
+
+---
+
+# 17. Crear `.env.prod`
+
+Crear:
+
+```text
+
+.env.prod
+
+```
+
+Con:
+
+```env
+
+POSTGRES_DB=saludos_db
+
+POSTGRES_USER=saludos_user
+
+POSTGRES_PASSWORD=saludos_prod_password
+
+DB_HOST=database
+
+DB_PORT=5432
+
+BACKEND_HOST=backend
+
+BACKEND_PORT=5000
+
+FRONTEND_PORT=80
+
+APP_ENV=production
+
+```
+
+> Los valores de contraseña son únicamente para fines educativos. En ambientes reales se deben utilizar mecanismos apropiados de gestión de secretos.
+
+---
+
+# 18. Problema adicional: Nginx también tiene configuración hardcodeada
+
+Abrir:
+
+```text
+
+frontend/nginx.conf
+
+```
+
+Actualmente:
+
+```nginx
+
+location /api/ {
+
+    proxy_pass http://backend:5000/;
+
+    proxy_set_header Host $host;
+
+    proxy_set_header X-Real-IP $remote_addr;
+
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+}
+
+```
+
+Tenemos:
+
+```text
+
+backend
+
+5000
+
+```
+
+hardcodeados.
+
+---
+
+# 19. Convertir `nginx.conf` en plantilla
+
+Renombrar:
+
+```text
+
+frontend/nginx.conf
+
+```
+
+a:
+
+```text
+
+frontend/nginx.conf.template
+
+```
+
+Cambiar:
+
+```nginx
+
+proxy_pass http://backend:5000/;
+
+```
+
+por:
+
+```nginx
+
+proxy_pass http://${BACKEND_HOST}:${BACKEND_PORT}/;
+
+```
+
+El archivo completo puede quedar:
+
+```nginx
+
+server {
+
+    listen 80 default_server;
+
+    listen [::]:80 default_server;
+
+    root /usr/share/nginx/html;
+
+    index index.html;
+
+    location / {
+
+        try_files $uri $uri/ =404;
+
+    }
+
+    location /api/ {
+
+        proxy_pass http://${BACKEND_HOST}:${BACKEND_PORT}/;
+
+        proxy_set_header Host $host;
+
+        proxy_set_header X-Real-IP $remote_addr;
+
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+    }
+
+}
+
+```
+
+---
+
+# 20. Actualizar el Dockerfile del Frontend
+
+Modificar:
+
+```text
+
+frontend/Dockerfile
+
+```
+
+De:
+
+```dockerfile
+
+FROM nginx:alpine
+
+COPY index.html /usr/share/nginx/html/
+
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+```
+
+A:
+
+```dockerfile
+
+FROM nginx:alpine
+
+COPY index.html /usr/share/nginx/html/
+
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+
+EXPOSE 80
+
+```
+
+La imagen oficial de Nginx utiliza `/etc/nginx/templates/` para trabajar con plantillas al iniciar el contenedor.
+
+---
+
+# 21. Reconstruir Frontend
 
 ```bash
-docker docker compose --env-file .env.dev exec database \
-psql -U saludos_user -d saludos_db \
--c "INSERT INTO saludos (mensaje) VALUES ('Este saludo sobrevivirá al contenedor');"
+
+docker build -t saludos-frontend:2.0 ./frontend
+
+```
+
+Actualizar Compose:
+
+```yaml
+
+frontend:
+
+  image: saludos-frontend:2.0
+
+```
+
+---
+
+# 22. Inyectar variables en Nginx
+
+Modificar:
+
+```yaml
+
+frontend:
+
+  image: saludos-frontend:2.0
+
+  ports:
+
+    - "8080:80"
+
+  environment:
+
+    BACKEND_HOST: ${BACKEND_HOST}
+
+    BACKEND_PORT: ${BACKEND_PORT}
+
+```
+
+La cadena queda:
+
+```text
+
+.env
+
+   ↓
+
+Compose
+
+   ↓
+
+Environment del container
+
+   ↓
+
+Nginx template
+
+   ↓
+
+Configuración final de Nginx
+
+```
+
+---
+
+# 23. Verificar variables del Backend
+
+```bash
+
+docker compose --env-file .env.dev config
+
+```
+
+Destruir:
+
+```bash
+
+docker compose --env-file .env.dev down -v
+
+```
+
+Levantar:
+
+```bash
+
+docker compose --env-file .env.dev up -d
+
+```
+
+```bash
+
+docker compose exec backend env | grep DB_
+
+```
+
+Esperamos:
+
+```text
+
+DB_HOST=database
+
+DB_PORT=5432
+
+DB_NAME=saludos_db
+
+DB_USER=saludos_user
+
+DB_PASSWORD=...
+
+```
+
+---
+
+# 24. Verificar variables de Nginx
+
+
+
+
+
+Verificar:
+
+```bash
+
+docker compose exec frontend env | grep BACKEND
+
+```
+
+Esperamos:
+
+```text
+
+BACKEND_HOST=backend
+
+BACKEND_PORT=5000
+
+```
+
+---
+
+# 25. Verificar configuración generada por Nginx
+
+Entrar:
+
+```bash
+
+docker compose exec frontend sh
+
 ```
 
 Consultar:
 
 ```bash
-docker compose --env-file .env.dev exec database \
-psql -U saludos_user -d saludos_db \
--c "SELECT * FROM saludos;"
+
+cat /etc/nginx/conf.d/default.conf
+
 ```
 
-Eliminar contenedores:
+Debemos encontrar:
+
+```nginx
+
+proxy_pass http://backend:5000/;
+
+```
+
+La plantilla contiene:
+
+```text
+
+${BACKEND_HOST}
+
+${BACKEND_PORT}
+
+```
+
+pero la configuración final contiene los valores reales.
+
+Salir:
 
 ```bash
-docker compose --env-file .env.dev down
+
+exit
+
+```
+
+---
+
+# 26. Validar comunicación Frontend → Backend
+
+Verificar:
+
+```bash
+
+docker compose ps
+
+```
+
+Probar:
+
+```text
+
+http://localhost:8080
+
+```
+
+Y:
+
+```text
+
+http://localhost:8080/api/saludo
+
+```
+
+Flujo:
+
+```text
+
+Browser
+
+   ↓
+
+localhost:8080
+
+   ↓
+
+Frontend / Nginx
+
+   ↓
+
+backend:5000
+
+   ↓
+
+Flask
+
+   ↓
+
+database:5432
+
+   ↓
+
+PostgreSQL
+
+```
+
+---
+
+# 27. Seleccionar el ambiente
+
+Desarrollo:
+
+```bash
+
+docker compose --env-file .env.dev up -d
+
+```
+
+Producción:
+
+```bash
+
+docker compose --env-file .env.prod up -d
+
+```
+
+Validar antes de levantar:
+
+```bash
+
+docker compose --env-file .env.dev config
+
+```
+
+```bash
+
+docker compose --env-file .env.prod config
+
+```
+
+Modelo:
+
+```text
+
+                    compose.yml
+
+                         |
+
+              ┌──────────┴──────────┐
+
+              ↓                     ↓
+
+          .env.dev              .env.prod
+
+              ↓                     ↓
+
+        DEVELOPMENT           PRODUCTION
+
+```
+
+---
+
+# 28. Comparar configuraciones
+
+Ejecutar:
+
+```bash
+
+docker compose --env-file .env.dev config
+
+```
+
+Observar:
+
+```text
+
+FRONTEND_PORT=8080
+
+APP_ENV=development
+
+```
+
+Después:
+
+```bash
+
+docker compose --env-file .env.prod config
+
+```
+
+Observar:
+
+```text
+
+FRONTEND_PORT=80
+
+APP_ENV=production
+
+```
+
+### Preguntas
+
+- ¿Qué valores cambian?
+
+- ¿Qué valores permanecen iguales?
+
+- ¿Por qué no necesitamos modificar `app.py` para cambiar de ambiente?
+
+- ¿Por qué no necesitamos modificar `nginx.conf.template`?
+
+---
+
+# 29. `.env` no es un mecanismo de secretos
+
+`.env` permite separar configuración del código, pero no debe confundirse con un sistema de gestión de secretos.
+
+Para este laboratorio utilizamos `.env` para demostrar configuración por ambiente.
+
+En un entorno real, las credenciales sensibles deben administrarse mediante una solución apropiada de secretos.
+
+---
+
+# 30. Persistencia de PostgreSQL
+
+Declarar:
+
+```yaml
+
+volumes:
+
+  postgres_data:
+
+```
+
+Agregar al servicio:
+
+```yaml
+
+database:
+
+  image: saludos-db:2.0
+
+  environment:
+
+    POSTGRES_DB: ${POSTGRES_DB}
+
+    POSTGRES_USER: ${POSTGRES_USER}
+
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+  volumes:
+
+    - postgres_data:/var/lib/postgresql/data
+
+```
+
+Verificar:
+
+```bash
+
+docker volume ls
+
+```
+
+Concepto:
+
+```text
+
+Container lifecycle
+
+        ≠
+
+Data lifecycle
+
+```
+
+---
+
+# 31. Named Volume vs Bind Mount
+
+## Named Volume
+
+Para datos PostgreSQL:
+
+```yaml
+
+- postgres_data:/var/lib/postgresql/data
+
+```
+
+## Bind Mount
+
+Para compartir archivos del repositorio:
+
+```yaml
+
+- ./frontend/index.html:/usr/share/nginx/html/index.html:ro
+
+```
+
+Diferencia:
+
+```text
+
+Named Volume
+
+     ↓
+
+Datos persistentes
+
+     ↓
+
+Administrados por Docker
+
+```
+
+```text
+
+Bind Mount
+
+     ↓
+
+Archivos del repositorio
+
+     ↓
+
+Compartidos entre host y container
+
+```
+
+---
+
+# 32. Compartir contenido del Frontend
+
+Agregar:
+
+```yaml
+
+frontend:
+
+  image: saludos-frontend:2.0
+
+  ports:
+
+    - "${FRONTEND_PORT}:80"
+
+  environment:
+
+    BACKEND_HOST: ${BACKEND_HOST}
+
+    BACKEND_PORT: ${BACKEND_PORT}
+
+  volumes:
+
+    - ./frontend/index.html:/usr/share/nginx/html/index.html:ro
+
+```
+
+---
+
+# 33. Compartir la plantilla de Nginx
+
+También podemos montar:
+
+```yaml
+
+- ./frontend/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+
+```
+
+El servicio queda:
+
+```yaml
+
+frontend:
+
+  image: saludos-frontend:2.0
+
+  ports:
+
+    - "${FRONTEND_PORT}:80"
+
+  environment:
+
+    BACKEND_HOST: ${BACKEND_HOST}
+
+    BACKEND_PORT: ${BACKEND_PORT}
+
+  volumes:
+
+    - ./frontend/index.html:/usr/share/nginx/html/index.html:ro
+
+    - ./frontend/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+
+```
+
+---
+
+# 34. Database: `init.sql` ya está dentro de la imagen
+
+No necesitamos montar `init.sql` como bind mount porque el Dockerfile de Database ya realiza:
+
+```dockerfile
+
+COPY init.sql /docker-entrypoint-initdb.d/
+
+```
+
+El flujo es:
+
+```text
+
+db/init.sql
+
+       ↓
+
+docker build
+
+       ↓
+
+saludos-db:2.0
+
+       ↓
+
+/docker-entrypoint-initdb.d/init.sql
+
+```
+
+El servicio solamente necesita el named volume:
+
+```yaml
+
+database:
+
+  image: saludos-db:2.0
+
+  environment:
+
+    POSTGRES_DB: ${POSTGRES_DB}
+
+    POSTGRES_USER: ${POSTGRES_USER}
+
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+  volumes:
+
+    - postgres_data:/var/lib/postgresql/data
+
+```
+
+No debemos hacer:
+
+```yaml
+
+- ./db:/var/lib/postgresql/data
+
+```
+
+ni:
+
+```yaml
+
+- ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+```
+
+porque `init.sql` ya está dentro de la imagen.
+
+Tenemos dos responsabilidades:
+
+```text
+
+init.sql
+
+   ↓
+
+Inicialización
+
+postgres_data
+
+   ↓
+
+Datos persistentes
+
+```
+
+---
+
+# 35. Backend y Bind Mount
+
+Antes de montar la carpeta completa del backend debemos inspeccionar la imagen:
+
+```bash
+
+docker image inspect saludos-backend:2.0
+
+```
+
+Buscar:
+
+```text
+
+WorkingDir
+
+Entrypoint
+
+Cmd
+
+```
+
+No asumir que el código está en:
+
+```text
+
+/app
+
+```
+
+si la imagen no lo especifica.
+
+Primero inspeccionamos y después decidimos si necesitamos un bind mount.
+
+---
+
+# 36. Probar persistencia
+
+Entrar a PostgreSQL:
+
+```bash
+
+docker compose exec database psql -U saludos_user -d saludos_db
+
+```
+
+Consultar:
+
+```sql
+
+dt
+
+```
+
+Salir:
+
+```sql
+
+q
+
+```
+
+Eliminar los recursos de ejecución:
+
+```bash
+
+docker compose down
+
 ```
 
 Volver a levantar:
 
 ```bash
-docker compose --env-file .env.dev up -d
+
+docker compose up -d
+
 ```
 
 Consultar nuevamente los datos.
@@ -557,359 +1631,896 @@ Consultar nuevamente los datos.
 Resultado esperado:
 
 ```text
-Container eliminado    → Sí
-Container recreado     → Sí
-Volume eliminado       → No
-Datos                  → Permanecen
+
+Container eliminado
+
+        ↓
+
+       Sí
+
+Container recreado
+
+        ↓
+
+       Sí
+
+Volume eliminado
+
+        ↓
+
+       No
+
+Datos
+
+        ↓
+
+   Permanecen
+
 ```
 
 ---
 
-# 16. `down` vs `down -v`
+# 37. `docker compose down` vs `down -v`
 
 Comparar:
 
 ```bash
+
 docker compose down
+
 ```
 
 con:
 
 ```bash
+
 docker compose down -v
+
 ```
 
-`down` elimina los recursos de ejecución del proyecto.
+`down` elimina los recursos de ejecución.
 
 `down -v` también elimina los volúmenes asociados.
 
-> **Advertencia:** no ejecutar `down -v` si necesitamos conservar los datos.
+### Advertencia
+
+No ejecutar:
+
+```bash
+
+docker compose down -v
+
+```
+
+si necesitamos conservar los datos.
 
 ---
 
-# 17. Healthcheck
+# 38. Healthcheck de PostgreSQL
 
-Un contenedor `running` no necesariamente significa que la aplicación esté lista.
+El `healthcheck` debe agregarse **dentro del servicio `database`** en `compose.yml`.
 
-Agregar al servicio de database:
+El servicio queda así:
 
 ```yaml
-healthcheck:
-  test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-  interval: 5s
-  timeout: 5s
-  retries: 5
-  start_period: 10s
+database:
+  image: saludos-db:2.0
+
+  environment:
+    POSTGRES_DB: ${POSTGRES_DB}
+    POSTGRES_USER: ${POSTGRES_USER}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+  volumes:
+    - postgres_data:/var/lib/postgresql/data
+
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+    interval: 5s
+    timeout: 5s
+    retries: 5
+    start_period: 10s
 ```
 
 Aplicar:
 
 ```bash
-docker compose up -d
+docker compose --env-file .env.dev up -d
 ```
 
 Verificar:
 
 ```bash
-docker compose ps
+docker compose --env-file .env.dev ps
 ```
 
-El servicio de database debe llegar a:
+PostgreSQL debe llegar a:
 
 ```text
 healthy
 ```
 
+También podemos validar directamente el estado del healthcheck:
+
+```bash
+docker inspect --format='{{.State.Health.Status}}' $(docker compose --env-file .env.dev ps -q database)
+```
+
+Resultado esperado:
+
+```text
+healthy
+```
+
+Un contenedor `running` no necesariamente significa que el servicio esté `ready`.
+
 ---
 
-# 18. Dependencia entre servicios
-
-El backend depende de PostgreSQL.
+# 39. Dependencia entre Backend y Database
 
 Agregar:
 
 ```yaml
+
 backend:
-  depends_on:
-    database:
-      condition: service_healthy
+
+  image: saludos-backend:2.0
+
+  environment:
+
+    DB_HOST: ${DB_HOST}
+
+    DB_PORT: ${DB_PORT}
+
+    DB_NAME: ${POSTGRES_DB}
+
+    DB_USER: ${POSTGRES_USER}
+
+    DB_PASSWORD: ${POSTGRES_PASSWORD}
+
+  depends_on:
+
+    database:
+
+      condition: service_healthy
+
 ```
 
 Modelo:
 
 ```text
-Database starts
-      ↓
-Healthcheck
-      ↓
-Database healthy
-      ↓
-Backend starts
-```
 
-La dependencia se expresa sobre la disponibilidad saludable del servicio y no únicamente sobre la existencia del contenedor.
+Database starts
+
+      ↓
+
+Healthcheck
+
+      ↓
+
+Database healthy
+
+      ↓
+
+Backend starts
+
+```
 
 ---
 
-# 19. Troubleshooting controlado
+# 40. Troubleshooting controlado
 
-Provocar un problema intencional.
-
-En el archivo de ambiente utilizado cambiar:
+En `.env.dev` cambiar:
 
 ```env
+
 DB_HOST=database
+
 ```
 
 por:
 
 ```env
+
 DB_HOST=database-error
+
 ```
 
-Aplicar:
+Levantar:
 
 ```bash
+
 docker compose --env-file .env.dev up -d
+
 ```
 
-## 19.1 Estado
+No corregir inmediatamente.
+
+Primero diagnosticar.
+
+---
+
+# 41. Diagnóstico — Estado
 
 ```bash
+
 docker compose ps
+
 ```
 
-## 19.2 Logs
+Pregunta:
+
+```text
+
+¿Qué servicio presenta el problema?
+
+```
+
+---
+
+# 42. Diagnóstico — Logs
 
 ```bash
+
 docker compose logs backend
+
 ```
 
-Para seguirlos:
+O:
 
 ```bash
+
 docker compose logs -f backend
+
 ```
 
-## 19.3 Variables
+Pregunta:
+
+```text
+
+¿Qué está reportando la aplicación?
+
+```
+
+---
+
+# 43. Diagnóstico — Variables
 
 ```bash
+
 docker compose exec backend env | grep DB_
+
 ```
 
-## 19.4 DNS
+Esperamos encontrar:
+
+```text
+
+DB_HOST=database-error
+
+```
+
+Tenemos evidencia de que la configuración incorrecta llegó al contenedor.
+
+---
+
+# 44. Diagnóstico — DNS
+
+Probar:
 
 ```bash
+
 docker compose exec backend getent hosts database
+
 ```
+
+Y:
 
 ```bash
+
 docker compose exec backend getent hosts database-error
+
 ```
 
-## 19.5 Corregir
+Esperamos:
+
+```text
+
+database
+
+   ↓
+
+Resuelve
+
+database-error
+
+   ↓
+
+No resuelve
+
+```
+
+---
+
+# 45. Corregir el problema
 
 Volver a:
 
 ```env
+
 DB_HOST=database
+
 ```
 
 Aplicar:
 
 ```bash
+
 docker compose --env-file .env.dev up -d
+
 ```
 
 Verificar:
 
 ```bash
+
 docker compose ps
+
 docker compose logs backend
+
 ```
 
----
-
-# 20. Inspección
-
-Compose administra la aplicación, pero Docker continúa administrando los recursos.
-
-Contenedores:
-
-```bash
-docker ps
-```
-
-Inspección:
-
-```bash
-docker inspect <CONTAINER_ID>
-```
-
-Red:
-
-```bash
-docker network ls
-docker network inspect <NETWORK_NAME>
-```
-
-Volúmenes:
-
-```bash
-docker volume ls
-docker volume inspect <VOLUME_NAME>
-```
-
-**Pregunta:** ¿por qué seguimos utilizando comandos `docker` si estamos utilizando Compose?
-
----
-
-# 21. Validación final
-
-Arquitectura esperada:
+Finalmente:
 
 ```text
-                         HOST
-                          |
-                    FRONTEND :8080
-                          |
-                          v
-                     Frontend
-                          |
-                    Docker Network
-                          |
-                          v
-                       Backend
-                          |
-                    Docker Network
-                          |
-                          v
-                      Database
-                          |
-                          v
-                    postgres_data
-                          |
-                          v
-                   Persistent Data
+
+http://localhost:8080
+
+```
+
+---
+
+# 46. Metodología de Troubleshooting
+
+```text
+
+Síntoma
+
+   ↓
+
+Hipótesis
+
+   ↓
+
+Evidencia
+
+   ↓
+
+Corrección
+
+   ↓
+
+Verificación
+
+```
+
+No trabajar así:
+
+```text
+
+Error
+
+   ↓
+
+Cambiar cosas al azar
+
+   ↓
+
+Reiniciar todo
+
+   ↓
+
+Esperar que funcione
+
+```
+
+---
+
+# 47. Inspección de recursos
+
+## Contenedores
+
+```bash
+
+docker ps
+
+```
+
+## Inspección
+
+```bash
+
+docker inspect <CONTAINER_ID>
+
+```
+
+## Redes
+
+```bash
+
+docker network ls
+
+```
+
+```bash
+
+docker network inspect <NETWORK_NAME>
+
+```
+
+## Volúmenes
+
+```bash
+
+docker volume ls
+
+```
+
+```bash
+
+docker volume inspect <VOLUME_NAME>
+
+```
+
+### Pregunta
+
+¿Por qué seguimos utilizando comandos `docker` si estamos utilizando Compose?
+
+### Respuesta esperada
+
+Porque Compose define y administra la aplicación, mientras que los recursos finales continúan siendo recursos Docker.
+
+---
+
+# 48. Validación final
+
+Arquitectura:
+
+```text
+
+                         HOST
+
+                           |
+
+                    localhost:8080
+
+                           |
+
+                           ↓
+
+                      FRONTEND
+
+                        Nginx
+
+                           |
+
+                     Docker Network
+
+                           |
+
+                           ↓
+
+                       BACKEND
+
+                        Flask
+
+                           |
+
+                     Docker Network
+
+                           |
+
+                           ↓
+
+                       DATABASE
+
+                      PostgreSQL
+
+                           |
+
+                           ↓
+
+                     postgres_data
+
+                           |
+
+                           ↓
+
+                    Persistent Data
+
 ```
 
 Validar:
 
 ```bash
+
 docker compose ps
-```
 
-```bash
 docker compose config
-```
 
-```bash
 docker volume ls
-```
 
-```bash
 docker network ls
+
 ```
 
-Abrir:
+Probar:
 
 ```text
+
 http://localhost:8080
+
 ```
 
-Presionar el botón de saludo y comprobar que la aplicación continúa funcionando.
+Y:
+
+```text
+
+http://localhost:8080/api/saludo
+
+```
 
 ---
 
-# 22. Checklist final
+# 49. Reto 1 — Ambientes
 
-- [ ] Se reutilizaron las tres imágenes existentes.
-- [ ] No se reconstruyeron las imágenes innecesariamente.
-- [ ] Los tres servicios están definidos en `compose.yml`.
-- [ ] Compose administra la red.
-- [ ] Frontend llega a backend.
-- [ ] Backend encuentra database mediante el nombre del servicio.
-- [ ] La configuración utiliza variables de entorno.
-- [ ] Existen `.env.dev` y `.env.prod`.
-- [ ] Se puede seleccionar el ambiente mediante `--env-file`.
-- [ ] `.env` no se utiliza como mecanismo de secretos.
-- [ ] PostgreSQL utiliza un named volume.
-- [ ] Se diferenciaron named volumes y bind mounts.
-- [ ] Se compartieron archivos seleccionados del repositorio mediante bind mounts.
-- [ ] Los datos sobreviven a `docker compose down`.
-- [ ] PostgreSQL tiene healthcheck.
-- [ ] Backend depende de database saludable.
-- [ ] Se realizó troubleshooting con `ps`, `logs`, `exec` e `inspect`.
-- [ ] La aplicación funciona desde el navegador.
+Levantar:
+
+```bash
+
+docker compose --env-file .env.dev up -d
+
+```
+
+Validar producción:
+
+```bash
+
+docker compose --env-file .env.prod config
+
+```
+
+Identificar:
+
+- ¿Qué valores cambian?
+
+- ¿Qué valores permanecen iguales?
+
+- ¿Qué parte del código no fue necesario modificar?
 
 ---
 
-# 23. Reto final
-
-## Reto 1 — Ambientes
-
-Levantar la aplicación utilizando `.env.dev` y `.env.prod`.
-
-Identificar qué valores cambian y cuáles permanecen iguales.
-
-## Reto 2 — Persistencia
+# 50. Reto 2 — Persistencia
 
 Demostrar:
 
 ```text
+
 Crear dato
-   ↓
+
+   ↓
+
 docker compose down
-   ↓
+
+   ↓
+
 docker compose up -d
-   ↓
+
+   ↓
+
+Consultar dato
+
+   ↓
+
 El dato permanece
+
 ```
 
-## Reto 3 — Troubleshooting
-
-Provocar un error de configuración y documentar:
-
-```text
-Síntoma
-   ↓
-Hipótesis
-   ↓
-Evidencia
-   ↓
-Corrección
-   ↓
-Verificación
-```
-
-## Reto 4 — Cambio sin reconstruir
-
-Modificar un archivo del frontend compartido mediante bind mount y verificar el efecto sin reconstruir la imagen.
+Explicar por qué el dato sobrevivió.
 
 ---
 
-# Resultado esperado
+# 51. Reto 3 — Troubleshooting
 
-Al finalizar, la aplicación que en Docker Básico requería administrar varios contenedores de forma individual podrá ser definida como una aplicación multicontenedor mediante Docker Compose.
+Provocar un error de configuración.
 
-Aprendimos:
-- Dockerfile → cómo se construye una imagen.
-- Image → artefacto de la aplicación.
-- Container → instancia ejecutable.
-- Compose → definición y administración de la aplicación multicontenedor.
-- Network → comunicación entre servicios.
-- Service Discovery → comunicación mediante nombres.
-- Environment Variables → configuración externa.
-- `.env.dev` / `.env.prod` → configuración por ambiente.
-- Bind Mount → compartir rutas/archivos del host.
-- Named Volume → persistencia administrada por Docker.
-- Healthcheck → verificar disponibilidad real.
-- `depends_on` → expresar dependencias.
-- Logs / exec / inspect → diagnóstico.
+Documentar:
 
-La meta no es memorizar un `compose.yml` terminado, sino aprender a construirlo a partir de las necesidades reales de una aplicación.
+```text
 
-# ¿Qué sigue después de Docker Compose?
+Síntoma
+
+   ↓
+
+Hipótesis
+
+   ↓
+
+Evidencia
+
+   ↓
+
+Corrección
+
+   ↓
+
+Verificación
+
+```
+
+Utilizar como mínimo:
+
+```bash
+
+docker compose ps
+
+docker compose logs
+
+docker compose exec
+
+docker inspect
+
+```
+
+---
+
+# 52. Reto 4 — Cambio sin reconstruir
+
+Modificar:
+
+```text
+
+frontend/index.html
+
+```
+
+y verificar el cambio desde el navegador.
+
+No ejecutar:
+
+```bash
+
+docker build
+
+```
+
+La modificación debe aprovechar el bind mount.
+
+### Pregunta
+
+¿Por qué este cambio no requiere reconstruir la imagen?
+
+---
+
+# 53. Reto 5 — Configuración sin reconstruir
+
+Cambiar un valor de:
+
+```text
+
+.env.dev
+
+```
+
+sin modificar:
+
+```text
+
+app.py
+
+nginx.conf.template
+
+```
+
+Validar:
+
+```bash
+
+docker compose --env-file .env.dev config
+
+```
+
+Y volver a levantar:
+
+```bash
+
+docker compose --env-file .env.dev up -d
+
+```
+
+### Objetivo
+
+Demostrar la diferencia entre:
+
+```text
+
+Código de la aplicación
+
+```
+
+y:
+
+```text
+
+Configuración del ambiente
+
+```
+
+---
+
+# 54. Checklist final
+
+- [ ] Se reutilizaron las imágenes existentes como punto de partida.
+
+- [ ] Se definieron los tres servicios en `compose.yml`.
+
+- [ ] Compose administra la red.
+
+- [ ] Frontend tiene el puerto publicado.
+
+- [ ] Backend y Database no necesitan publicar sus puertos al host.
+
+- [ ] Backend utiliza `DB_HOST` mediante variable de entorno.
+
+- [ ] Backend utiliza `DB_PORT` mediante variable de entorno.
+
+- [ ] Backend utiliza `DB_NAME` mediante variable de entorno.
+
+- [ ] Backend utiliza `DB_USER` mediante variable de entorno.
+
+- [ ] Backend utiliza `DB_PASSWORD` mediante variable de entorno.
+
+- [ ] Nginx utiliza `BACKEND_HOST`.
+
+- [ ] Nginx utiliza `BACKEND_PORT`.
+
+- [ ] Se creó `nginx.conf.template`.
+
+- [ ] Se actualizó el Dockerfile del frontend.
+
+- [ ] Se construyó `saludos-frontend:2.0`.
+
+- [ ] Se construyó `saludos-backend:2.0`.
+
+- [ ] Se actualizó el Dockerfile de Database para externalizar su configuración.
+
+- [ ] Se construyó `saludos-db:2.0`.
+
+- [ ] `init.sql` permanece dentro de la imagen de Database.
+
+- [ ] Existen `.env.dev` y `.env.prod`.
+
+- [ ] Se puede seleccionar el ambiente mediante `--env-file`.
+
+- [ ] Se diferenció configuración de secretos.
+
+- [ ] PostgreSQL utiliza un named volume.
+
+- [ ] Se diferenciaron named volumes y bind mounts.
+
+- [ ] Se compartieron archivos seleccionados del repositorio.
+
+- [ ] Los datos sobreviven a `docker compose down`.
+
+- [ ] PostgreSQL tiene healthcheck.
+
+- [ ] Backend depende de Database saludable.
+
+- [ ] Se realizó troubleshooting.
+
+- [ ] Se utilizaron `ps`, `logs`, `exec` e `inspect`.
+
+- [ ] La aplicación funciona desde el navegador.
+
+---
+
+# 55. Resultado esperado
+
+Al finalizar, la aplicación que en Docker Básico requería administrar varios contenedores individualmente podrá ser definida como una aplicación multicontenedor mediante Docker Compose.
+
+
+
+```text
+
+Dockerfile
+
+    ↓
+
+Cómo se construye una imagen
+
+Image
+
+    ↓
+
+Artefacto de la aplicación
+
+Container
+
+    ↓
+
+Instancia ejecutable
+
+Compose
+
+    ↓
+
+Definición y administración
+
+de la aplicación multicontenedor
+
+Network
+
+    ↓
+
+Comunicación entre servicios
+
+Service Discovery
+
+    ↓
+
+Comunicación mediante nombres
+
+Environment Variables
+
+    ↓
+
+Configuración externa
+
+.env.dev / .env.prod
+
+    ↓
+
+Configuración por ambiente
+
+Bind Mount
+
+    ↓
+
+Compartir archivos del host
+
+Named Volume
+
+    ↓
+
+Persistencia administrada por Docker
+
+Healthcheck
+
+    ↓
+
+Verificación de disponibilidad
+
+depends_on
+
+    ↓
+
+Dependencias entre servicios
+
+Logs / exec / inspect
+
+    ↓
+
+Diagnóstico
+
+```
+
+La meta no es memorizar un `compose.yml` terminado.
+
+La meta es aprender a construirlo a partir de las necesidades reales de una aplicación.
+
+---
+
+## 56. CI/CD — ¿Qué sigue después de Docker Compose?
 
 Durante esta clase transformamos una aplicación compuesta por contenedores individuales en una aplicación **reproducible y gestionable con Docker Compose**.
 
@@ -986,3 +2597,4 @@ La idea no es estudiar CI/CD en esta clase, sino identificar el problema que res
 **Si mañana hacemos un cambio en `app.py`, ¿qué pasos de este laboratorio podríamos automatizar para que el cambio llegue de forma segura al siguiente ambiente?**
 
 > **La siguiente clase: CI/CD.**
+
